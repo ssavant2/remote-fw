@@ -1,7 +1,11 @@
+# Remote Firewall - Production Docker Compose (standalone)
+# Download: wget -O docker-compose.yml https://github.com/ssavant2/remote-fw/releases/latest/download/docker-compose.yml
+# Docs: https://github.com/ssavant2/remote-fw
+
 services:
   remote-fw:
-    build: .
     container_name: remote-fw
+    image: ghcr.io/ssavant2/remote-fw:${REMOTE_FW_VERSION:-latest}
     restart: unless-stopped
     init: true
     user: "1000:1000"

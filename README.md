@@ -144,7 +144,9 @@ If release notes mention changes to the standalone compose file, re-download
 
 ## Quick Start (Local Build)
 
-This setup builds the Docker image locally from the cloned repository.
+This setup builds the Docker image locally from the cloned repository. The
+Compose file normally uses the prebuilt GHCR image, so tag the local build as a
+local GHCR image tag and point Compose at that tag for the run.
 
 Copy the example environment file:
 
@@ -181,7 +183,8 @@ Then set `SFOS_EXTRA_HOST_IP` in `.env`.
 Start the app:
 
 ```bash
-docker compose up -d --build
+docker build -t ghcr.io/ssavant2/remote-fw:local .
+REMOTE_FW_VERSION=local docker compose up -d
 ```
 
 Open:

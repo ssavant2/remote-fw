@@ -2,6 +2,8 @@
 .env.*
 !.env.example
 docker-compose.override.yml
+docker-compose.dev.yml
+docker-compose.local.yml
 __pycache__/
 *.pyc
 .pytest_cache/
