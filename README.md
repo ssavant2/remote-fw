@@ -41,7 +41,7 @@ If you use it, keep it on a trusted internal network, put real authentication in
 
 You need to create/use an account on the Sophos Firewall for this app.
 
-The setup tested for this project uses:
+The original known-good setup tested for this project uses:
 
 - an `api_user` account created on the firewall
 - membership in the built-in `administrator` group
@@ -57,7 +57,8 @@ configuration in the web admin console or getting it through the API.
 For a least-privilege profile, start with a dedicated Administrator-type user
 and a custom Device access profile, for example `remote-fw-toggle`.
 
-Suggested starting permissions for the default GUI toggle method:
+The following reduced profile has also been tested successfully with the
+default GUI toggle method:
 
 | Profile section | Access | Why |
 | --- | --- | --- |
