@@ -48,7 +48,39 @@ The setup tested for this project uses:
 - `API access` enabled on the firewall
 - API access restricted to specific trusted hosts/IP addresses where possible
 
-It should be possible to create an account with fewer privileges than full administrator access, but that has not been mapped out here. If you want least-privilege access, you will need to test which exact permissions SFOS requires for reading firewall rules and toggling their enabled/disabled state.
+This works, but it is broader than ideal. Sophos documents API access as being
+controlled by administrator/device-access profiles, and the device-access
+permissions used for the web admin console also apply to the API. A profile
+permission set to `None` prevents the administrator from seeing that
+configuration in the web admin console or getting it through the API.
+
+For a least-privilege profile, start with a dedicated Administrator-type user
+and a custom Device access profile, for example `remote-fw-toggle`:
+
+- firewall rules/security policies/rules and policies: `Read-write`
+- firewall rule groups: `Read-only` for the default GUI toggle method;
+  `Read-write` only if you use the XML fallback/group repair path
+- objects/hosts/services/network objects: try `Read-only` first; increase only
+  the specific section SFOS rejects
+- everything else: `None`
+
+Also restrict the user to the Docker host wherever SFOS allows it:
+
+- enable `API access`
+- set `Allowed IP hosts` to the Docker host or a small trusted management host list
+- restrict the user's login/device-access source IPs
+- expose HTTPS/API device access only on trusted zones, or with a local service
+  ACL exception for the trusted host
+
+The exact minimum has not been formally mapped out by Sophos for this app. The
+default toggle method uses an internal web-console endpoint rather than a public
+XML API operation, so test this profile carefully after SFOS upgrades.
+
+Relevant Sophos documentation:
+
+- https://docs.sophos.com/nsg/sophos-firewall/22.0/Help/en-us/webhelp/onlinehelp/AdministratorHelp/Administration/API/index.html
+- https://docs.sophos.com/nsg/sophos-firewall/22.0/Help/en-us/webhelp/onlinehelp/AdministratorHelp/Administration/API/HowToArticles/APIAllowAccess/index.html
+- https://docs.sophos.com/nsg/sophos-firewall/21.0/Help/en-us/webhelp/onlinehelp/AdministratorHelp/Profiles/DeviceAccess/index.html
 
 ## Quick Start (Docker Image)
 
