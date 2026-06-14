@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import os
 import re
+import secrets
 import threading
 import time
 import uuid
+from urllib.parse import urlparse
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, g, jsonify, render_template, request
 
 from sophos_api import SophosAPIError, SophosFirewallClient, VALID_STATUSES
 
@@ -66,8 +68,36 @@ def toggle_method() -> str:
     return os.environ.get("SFOS_TOGGLE_METHOD", "gui").strip().lower()
 
 
+def configured_allowed_origins() -> set[str]:
+    raw_origins = os.environ.get("REMOTE_FW_ALLOWED_ORIGINS", "")
+    return {
+        origin.strip().lower().rstrip("/")
+        for origin in re.split(r"[,;\n]", raw_origins)
+        if origin.strip()
+    }
+
+
+def origin_allowed() -> bool:
+    origin = request.headers.get("Origin", "")
+    if not origin:
+        return True
+
+    parsed = urlparse(origin)
+    if not parsed.scheme or not parsed.netloc:
+        return False
+
+    origin_host = parsed.netloc.lower()
+    if origin_host == request.host.lower():
+        return True
+
+    allowed = configured_allowed_origins()
+    normalized_origin = f"{parsed.scheme.lower()}://{origin_host}"
+    return normalized_origin in allowed or origin_host in allowed
+
+
 app = Flask(__name__)
 app.config["APP_TITLE"] = os.environ.get("APP_TITLE", "Remote Firewall")
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("REMOTE_FW_MAX_CONTENT_LENGTH", "16384"))
 
 RESTORE_JOBS: dict[str, dict[str, object]] = {}
 RESTORE_JOBS_LOCK = threading.Lock()
@@ -81,6 +111,39 @@ MUTATION_STATE: dict[str, object] = {
     "updated_at": 0.0,
 }
 MUTATION_STATE_LOCK = threading.Lock()
+
+
+@app.before_request
+def apply_request_guards():
+    g.csp_nonce = secrets.token_urlsafe(16)
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and not origin_allowed():
+        return jsonify({"error": "Cross-origin requests are not allowed"}), 403
+    return None
+
+
+@app.after_request
+def apply_security_headers(response):
+    nonce = getattr(g, "csp_nonce", "")
+    if nonce:
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "base-uri 'none'; "
+            "connect-src 'self'; "
+            "form-action 'self'; "
+            "frame-ancestors 'none'; "
+            "img-src 'self' data:; "
+            "object-src 'none'; "
+            f"script-src 'self' 'nonce-{nonce}'; "
+            f"style-src 'self' 'nonce-{nonce}'"
+        )
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
 
 
 def set_mutation_state(status: str, rule_name: str = "", group_name: str = "") -> None:
@@ -188,7 +251,7 @@ def run_group_restore_job(rule_name: str, group_snapshot_xml: str) -> None:
 
 @app.get("/")
 def index():
-    return render_template("index.html", title=app.config["APP_TITLE"])
+    return render_template("index.html", title=app.config["APP_TITLE"], csp_nonce=g.csp_nonce)
 
 
 @app.get("/healthz")

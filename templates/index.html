@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ title }}</title>
-    <style>
+    <style nonce="{{ csp_nonce }}">
       :root {
         color-scheme: light;
         --bg: #f5f7fb;
@@ -181,7 +181,7 @@
       </section>
     </main>
 
-    <script>
+    <script nonce="{{ csp_nonce }}">
       const ruleList = document.querySelector("#rule-list");
       const statusLine = document.querySelector("#status-line");
       const refreshButton = document.querySelector("#refresh");
@@ -289,7 +289,11 @@
             statusLine.textContent = `Last updated ${now}`;
           }
         } catch (error) {
-          ruleList.innerHTML = `<div class="empty">${error.message}</div>`;
+          ruleList.textContent = "";
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = error.message;
+          ruleList.append(empty);
           statusLine.textContent = "Failed to read status";
         } finally {
           refreshButton.disabled = false;

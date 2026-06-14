@@ -50,7 +50,7 @@ The setup tested for this project uses:
 
 It should be possible to create an account with fewer privileges than full administrator access, but that has not been mapped out here. If you want least-privilege access, you will need to test which exact permissions SFOS requires for reading firewall rules and toggling their enabled/disabled state.
 
-## Quick Start (Production)
+## Quick Start (Docker Image)
 
 This is the recommended setup for normal use. It uses the standalone release
 compose file and prebuilt Docker images.
@@ -184,6 +184,22 @@ The XML path updates the rule through the SFOS XML API and then attempts to rest
 Do not commit `.env`.
 
 The `.gitignore` and `.dockerignore` files exclude `.env` and `.env.*` by default, except for `.env.example`.
+
+The published Docker setup includes a basic hardening baseline:
+
+- runs as a non-root user (`1000:1000`)
+- drops all Linux capabilities
+- enables `no-new-privileges`
+- uses a read-only root filesystem
+- mounts only `/tmp` as tmpfs with `noexec`, `nosuid`, and `nodev`
+- sets process and memory limits
+- rotates container logs
+- sends basic browser security headers, including CSP, `X-Frame-Options`, and `nosniff`
+- blocks cross-origin state-changing requests unless explicitly allowed
+- limits request body size
+- uses Dependabot for Python, Docker, and GitHub Actions dependency checks
+
+The Docker image uses `uv` during the build to install Python dependencies into a virtual environment. `uv` and `pip` are not needed at runtime.
 
 For real use, consider:
 

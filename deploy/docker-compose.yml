@@ -8,9 +8,10 @@ services:
     image: ghcr.io/ssavant2/remote-fw:${REMOTE_FW_VERSION:-latest}
     restart: unless-stopped
     init: true
+    user: "1000:1000"
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -38,4 +39,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
