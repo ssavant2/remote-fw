@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }}</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fb;
+        --text: #172033;
+        --muted: #657085;
+        --line: #d8deea;
+        --green: #147a3d;
+        --green-bg: #dff5e8;
+        --red: #b42318;
+        --red-bg: #ffe5e1;
+        --gray: #536071;
+        --gray-bg: #edf1f7;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      main {
+        width: min(860px, calc(100% - 32px));
+        margin: 48px auto;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .subtitle {
+        margin: 0 0 28px;
+        color: var(--muted);
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+
+      .status-line {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .refresh {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--text);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .rule-list {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .rule-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        border-top: 1px solid var(--line);
+      }
+
+      .rule-row:first-child {
+        border-top: 0;
+      }
+
+      .rule-name {
+        min-width: 0;
+        font-weight: 650;
+        overflow-wrap: anywhere;
+      }
+
+      .rule-meta {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .rule-error {
+        margin-top: 6px;
+        color: var(--red);
+        font-size: 13px;
+      }
+
+      .rule-sync {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .toggle {
+        min-width: 132px;
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .toggle.enabled {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+
+      .toggle.disabled {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+
+      .toggle.unknown {
+        background: var(--gray-bg);
+        color: var(--gray);
+        cursor: not-allowed;
+      }
+
+      .toggle:disabled {
+        opacity: 0.65;
+        cursor: wait;
+      }
+
+      .empty {
+        padding: 18px;
+        color: var(--muted);
+      }
+
+      @media (max-width: 560px) {
+        main {
+          width: min(100% - 20px, 860px);
+          margin: 24px auto;
+        }
+
+        .rule-row {
+          grid-template-columns: 1fr;
+        }
+
+        .toggle {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>{{ title }}</h1>
+      <p class="subtitle">SFOS firewall rules</p>
+
+      <div class="toolbar">
+        <div class="status-line" id="status-line">Reading status...</div>
+        <button class="refresh" type="button" id="refresh">Refresh</button>
+      </div>
+
+      <section class="rule-list" id="rule-list">
+        <div class="empty">Loading rules...</div>
+      </section>
+    </main>
+
+    <script>
+      const ruleList = document.querySelector("#rule-list");
+      const statusLine = document.querySelector("#status-line");
+      const refreshButton = document.querySelector("#refresh");
+      let currentRules = [];
+      let currentMutation = { status: "idle" };
+
+      function buttonClass(rule) {
+        if (rule.enabled === true) return "enabled";
+        if (rule.enabled === false) return "disabled";
+        return "unknown";
+      }
+
+      function buttonText(rule) {
+        if (rule.enabled === true) return "Enabled";
+        if (rule.enabled === false) return "Disabled";
+        return "Unknown";
+      }
+
+      function targetStatus(rule) {
+        return rule.enabled ? "Disable" : "Enable";
+      }
+
+      function mutationActive() {
+        return currentMutation && currentMutation.status && currentMutation.status !== "idle";
+      }
+
+      function render(rules, mutation = currentMutation) {
+        currentRules = rules;
+        currentMutation = mutation || { status: "idle" };
+        ruleList.textContent = "";
+        if (!rules.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "No rules are configured in RULE_NAMES.";
+          ruleList.append(empty);
+          return;
+        }
+
+        for (const rule of rules) {
+          const row = document.createElement("div");
+          row.className = "rule-row";
+
+          const copy = document.createElement("div");
+          const name = document.createElement("div");
+          name.className = "rule-name";
+          name.textContent = rule.name;
+          copy.append(name);
+
+          const meta = document.createElement("div");
+          meta.className = "rule-meta";
+          meta.textContent = [
+            rule.group_name ? `Group: ${rule.group_name}` : "",
+            rule.source_zones?.length ? `Source zones: ${rule.source_zones.join(", ")}` : "",
+            rule.source_networks?.length ? `Source networks/devices: ${rule.source_networks.join(", ")}` : ""
+          ].filter(Boolean).join(" · ");
+          if (meta.textContent) copy.append(meta);
+
+          if (rule.error) {
+            const error = document.createElement("div");
+            error.className = "rule-error";
+            error.textContent = rule.error;
+            copy.append(error);
+          }
+
+          if (rule.restore_status === "pending") {
+            const sync = document.createElement("div");
+            sync.className = "rule-sync";
+            sync.textContent = "Restoring group and rule order...";
+            copy.append(sync);
+          } else if (rule.restore_status === "error") {
+            const error = document.createElement("div");
+            error.className = "rule-error";
+            error.textContent = rule.restore_error || "Could not restore the group automatically.";
+            copy.append(error);
+          }
+
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `toggle ${buttonClass(rule)}`;
+          button.textContent = buttonText(rule);
+          button.disabled = rule.enabled === null || Boolean(rule.error) || rule.restore_status === "pending" || mutationActive();
+          button.addEventListener("click", () => toggleRule(rule, button));
+
+          row.append(copy, button);
+          ruleList.append(row);
+        }
+      }
+
+      async function loadStatus() {
+        refreshButton.disabled = true;
+        statusLine.textContent = "Reading status...";
+        try {
+          const response = await fetch("/status", { headers: { "Accept": "application/json" } });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Could not read status");
+          render(data.rules || [], data.mutation || { status: "idle" });
+          const now = new Date().toLocaleTimeString("sv-SE", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+          });
+          if (mutationActive()) {
+            statusLine.textContent = `Change in progress for ${currentMutation.rule_name || "a rule"}...`;
+          } else {
+            statusLine.textContent = `Last updated ${now}`;
+          }
+        } catch (error) {
+          ruleList.innerHTML = `<div class="empty">${error.message}</div>`;
+          statusLine.textContent = "Failed to read status";
+        } finally {
+          refreshButton.disabled = false;
+        }
+      }
+
+      async function toggleRule(rule, button) {
+        button.disabled = true;
+        button.textContent = "Updating...";
+        statusLine.textContent = `Updating ${rule.name}...`;
+        try {
+          const response = await fetch("/toggle", {
+            method: "POST",
+            headers: {
+              "Accept": "application/json",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ name: rule.name, target_status: targetStatus(rule) })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Could not update the rule");
+          const updatedRule = {
+            ...rule,
+            ...data.rule,
+            restore_status: data.group_restore?.status || "",
+            restore_error: ""
+          };
+          replaceRule(updatedRule);
+          currentMutation = {
+            status: updatedRule.restore_status === "pending" ? "restoring_group" : "idle",
+            rule_name: updatedRule.name,
+            group_name: data.group_restore?.group_name || ""
+          };
+          render(currentRules, currentMutation);
+          const now = new Date().toLocaleTimeString("sv-SE", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+          });
+          statusLine.textContent = `${rule.name} updated ${now}`;
+          if (updatedRule.restore_status === "pending") {
+            pollRestore(updatedRule.name);
+          }
+        } catch (error) {
+          statusLine.textContent = error.message;
+          await loadStatus();
+        }
+      }
+
+      function replaceRule(rule) {
+        currentRules = currentRules.map((candidate) => candidate.name === rule.name ? rule : candidate);
+      }
+
+      async function pollRestore(ruleName) {
+        try {
+          const params = new URLSearchParams({ name: ruleName });
+          const response = await fetch(`/restore-status?${params.toString()}`, {
+            headers: { "Accept": "application/json" }
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Could not read restore status");
+          if (data.status === "pending") {
+            window.setTimeout(() => pollRestore(ruleName), 2000);
+            return;
+          }
+          if (data.status === "error") {
+            const rule = currentRules.find((candidate) => candidate.name === ruleName);
+            if (rule) {
+              replaceRule({ ...rule, restore_status: "error", restore_error: data.error });
+              render(currentRules);
+            }
+            return;
+          }
+          currentMutation = { status: "idle" };
+          await loadStatus();
+        } catch (error) {
+          const rule = currentRules.find((candidate) => candidate.name === ruleName);
+          if (rule) {
+            replaceRule({ ...rule, restore_status: "error", restore_error: error.message });
+            render(currentRules);
+          }
+        }
+      }
+
+      refreshButton.addEventListener("click", loadStatus);
+      loadStatus();
+    </script>
+  </body>
+</html>
