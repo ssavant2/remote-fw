@@ -1,0 +1,41 @@
+# Remote Firewall - Production Docker Compose (standalone)
+# Download: wget -O docker-compose.yml https://github.com/ssavant2/remote-fw/releases/latest/download/docker-compose.yml
+# Docs: https://github.com/ssavant2/remote-fw
+
+services:
+  remote-fw:
+    container_name: remote-fw
+    image: ghcr.io/ssavant2/remote-fw:${REMOTE_FW_VERSION:-latest}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 200
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - .env
+    ports:
+      - "${REMOTE_FW_BIND:-127.0.0.1}:${REMOTE_FW_PORT:-8090}:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+

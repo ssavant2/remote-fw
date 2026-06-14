@@ -50,7 +50,54 @@ The setup tested for this project uses:
 
 It should be possible to create an account with fewer privileges than full administrator access, but that has not been mapped out here. If you want least-privilege access, you will need to test which exact permissions SFOS requires for reading firewall rules and toggling their enabled/disabled state.
 
-## Quick Start
+## Quick Start (Production)
+
+This is the recommended setup for normal use. It uses the standalone release
+compose file and prebuilt Docker images.
+
+```bash
+mkdir remote-fw && cd remote-fw
+wget -O docker-compose.yml https://github.com/ssavant2/remote-fw/releases/latest/download/docker-compose.yml
+wget -O .env https://github.com/ssavant2/remote-fw/releases/latest/download/example.env
+
+# Edit .env - set SFOS_HOST, SFOS_USERNAME, SFOS_PASSWORD and RULE_NAMES.
+chmod 600 .env
+docker compose up -d
+```
+
+Open:
+
+```text
+http://localhost:8090
+```
+
+If you bind to a LAN interface, set:
+
+```env
+REMOTE_FW_BIND=0.0.0.0
+```
+
+If the container cannot resolve `SFOS_HOST` through DNS, download the optional
+Compose override:
+
+```bash
+wget -O docker-compose.override.yml https://github.com/ssavant2/remote-fw/releases/latest/download/docker-compose.override.yml.example
+```
+
+Then set `SFOS_EXTRA_HOST_IP` in `.env`.
+
+## Update
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+If release notes mention changes to the standalone compose file, re-download
+`docker-compose.yml` before updating.
+
+## Quick Start (Local Build)
+
+This setup builds the Docker image locally from the cloned repository.
 
 Copy the example environment file:
 

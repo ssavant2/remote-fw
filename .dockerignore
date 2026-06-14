@@ -1,11 +1,15 @@
 .env
 .env.*
-!.env.example
 docker-compose.override.yml
 __pycache__/
 *.pyc
 .git/
 .gitignore
+.github/
+deploy/
+README.md
+LICENSE
+docker-compose*.yml
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/

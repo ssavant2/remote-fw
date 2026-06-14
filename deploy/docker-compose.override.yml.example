@@ -1,0 +1,6 @@
+services:
+  remote-fw:
+    # Optional: use this if the container cannot resolve SFOS_HOST through DNS.
+    extra_hosts:
+      - "${SFOS_HOST}:${SFOS_EXTRA_HOST_IP}"
+
