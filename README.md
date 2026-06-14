@@ -55,14 +55,28 @@ permission set to `None` prevents the administrator from seeing that
 configuration in the web admin console or getting it through the API.
 
 For a least-privilege profile, start with a dedicated Administrator-type user
-and a custom Device access profile, for example `remote-fw-toggle`:
+and a custom Device access profile, for example `remote-fw-toggle`.
 
-- firewall rules/security policies/rules and policies: `Read-write`
-- firewall rule groups: `Read-only` for the default GUI toggle method;
-  `Read-write` only if you use the XML fallback/group repair path
-- objects/hosts/services/network objects: try `Read-only` first; increase only
-  the specific section SFOS rejects
-- everything else: `None`
+Suggested starting permissions for the default GUI toggle method:
+
+| Profile section | Access | Why |
+| --- | --- | --- |
+| Rules and policies | Read-write | Required to change firewall rule status. This appears to cover both rules and rule groups in SFOS. |
+| Objects | Read-only | Firewall rules commonly reference host, network, and service objects. |
+| Network | Read-only | Firewall rules commonly reference zones and network-side configuration. |
+| Everything else | None | The app does not need these areas for the default workflow. |
+
+If your configured rules reference extra feature policies, you may need
+`Read-only` for those specific areas, for example `IPS`, `Web & content filter`,
+`Application filter`, `Traffic shaping`, `WAF`, or `Identity` sections for
+user-based rules. Add these only when SFOS rejects a status read/toggle for a
+rule that uses that feature.
+
+There does not appear to be a separate per-rule permission in the Device access
+profile. `Rules and policies = Read-write` is therefore broader than the app's
+own allow-list in `RULE_NAMES`: the app only exposes configured rules, but the
+SFOS account itself can still modify firewall policy if its credentials are
+misused.
 
 Also restrict the user to the Docker host wherever SFOS allows it:
 
