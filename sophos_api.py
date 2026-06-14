@@ -10,6 +10,8 @@ import xml.etree.ElementTree as ET
 
 import requests
 import urllib3
+from defusedxml.ElementTree import fromstring as safe_fromstring
+from defusedxml.common import DefusedXmlException
 from urllib3.exceptions import InsecureRequestWarning
 
 
@@ -172,8 +174,8 @@ class SophosFirewallClient:
 
     def restore_rule_group_snapshot(self, group_snapshot_xml: str) -> None:
         try:
-            group = ET.fromstring(group_snapshot_xml)
-        except ET.ParseError as exc:
+            group = safe_fromstring(group_snapshot_xml)
+        except (ET.ParseError, DefusedXmlException) as exc:
             raise SophosAPIError("Stored FirewallRuleGroup snapshot is invalid XML") from exc
         if group.tag != "FirewallRuleGroup":
             raise SophosAPIError("Stored group snapshot is not a FirewallRuleGroup")
@@ -386,8 +388,8 @@ class SophosFirewallClient:
             raise SophosAPIError(f"Sophos Firewall API returned HTTP {response.status_code}")
 
         try:
-            root = ET.fromstring(response.content)
-        except ET.ParseError as exc:
+            root = safe_fromstring(response.content)
+        except (ET.ParseError, DefusedXmlException) as exc:
             preview = response.text[:300].replace("\n", " ")
             raise SophosAPIError(f"Sophos Firewall API returned invalid XML: {preview}") from exc
 

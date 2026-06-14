@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import secrets
@@ -11,6 +12,9 @@ from urllib.parse import urlparse
 from flask import Flask, g, jsonify, render_template, request
 
 from sophos_api import SophosAPIError, SophosFirewallClient, VALID_STATUSES
+
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
+logger = logging.getLogger("remote_fw")
 
 
 def parse_bool(value: str | None, default: bool = True) -> bool:
@@ -224,13 +228,14 @@ def start_group_restore_job(rule_name: str, group_name: str, group_snapshot_xml:
 def run_group_restore_job(rule_name: str, group_snapshot_xml: str) -> None:
     try:
         make_client().restore_rule_group_snapshot(group_snapshot_xml)
-    except Exception as exc:  # Keep this background worker alive and expose the error to UI.
+    except Exception as exc:  # Keep this worker alive; surface a generic failure to the UI.
+        logger.warning("Could not restore group for rule %r: %s", rule_name, exc)
         with RESTORE_JOBS_LOCK:
             if rule_name in RESTORE_JOBS:
                 RESTORE_JOBS[rule_name].update(
                     {
                         "status": "error",
-                        "error": str(exc),
+                        "error": "Could not restore the rule group automatically.",
                         "updated_at": time.time(),
                     }
                 )
@@ -280,6 +285,7 @@ def status():
                 rule["restore_error"] = restore_job.get("error", "")
             rules.append(rule)
         except SophosAPIError as exc:
+            logger.warning("Could not read status for rule %r: %s", name, exc)
             restore_job = restore_job_for_rule(name)
             rules.append(
                 {
@@ -293,7 +299,7 @@ def status():
                     "group_name": dynamic_groups.get(name) or configured_groups.get(name, ""),
                     "restore_status": restore_job.get("status", "") if restore_job else "",
                     "restore_error": restore_job.get("error", "") if restore_job else "",
-                    "error": str(exc),
+                    "error": "Could not read the rule status.",
                 }
             )
     return jsonify({"rules": rules, "mutation": current_mutation()})
@@ -381,7 +387,8 @@ def toggle():
             release_mutation_lock()
     except SophosAPIError as exc:
         release_mutation_lock()
-        return jsonify({"error": str(exc)}), 502
+        logger.warning("Could not update rule %r: %s", name, exc)
+        return jsonify({"error": "Could not update the firewall rule."}), 502
     except Exception:
         release_mutation_lock()
         raise
