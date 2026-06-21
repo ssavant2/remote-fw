@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v6.0.3
 
       - name: Publish release assets
-        uses: softprops/action-gh-release@v3.0.0
+        uses: softprops/action-gh-release@v3.0.1
         with:
           files: |
             deploy/docker-compose.yml
