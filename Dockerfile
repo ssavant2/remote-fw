@@ -1,4 +1,4 @@
-FROM python:3.14-slim AS builder
+FROM python:3.14.8-slim-trixie AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -6,14 +6,14 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
-COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.22 /uv /usr/local/bin/uv
 
-COPY requirements.txt .
+COPY requirements.txt requirements.lock ./
 RUN uv venv /opt/venv \
-    && uv pip install --python /opt/venv/bin/python -r requirements.txt
+    && uv pip install --python /opt/venv/bin/python --require-hashes -r requirements.lock
 
 
-FROM python:3.14-slim
+FROM python:3.14.8-slim-trixie
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -22,6 +22,8 @@ ENV PATH="/opt/venv/bin:$PATH" \
 WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv
+
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 RUN rm -rf \
         /opt/venv/lib/python*/site-packages/pip* \
@@ -48,4 +50,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4", "--timeout", "240", "app:app"]
+CMD ["gunicorn", "--no-control-socket", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4", "--timeout", "240", "app:app"]

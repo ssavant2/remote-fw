@@ -251,6 +251,18 @@ The published Docker setup includes a basic hardening baseline:
 
 The Docker image uses `uv` during the build to install Python dependencies into a virtual environment. `uv` and `pip` are not needed at runtime.
 
+Dependencies, including transitive packages, are pinned with verified hashes in
+`requirements.lock`. After updating `requirements.txt`, regenerate that lock
+using uv before building:
+
+```bash
+uv pip compile requirements.txt --python-version 3.14 --generate-hashes -o requirements.lock
+```
+
+The Dockerfile pins the Python and uv versions and applies available Debian
+package patches. Gunicorn's optional control socket is disabled because this
+container uses a read-only root filesystem.
+
 For real use, consider:
 
 - running behind Authentik, Authelia, Nginx auth, or another trusted auth layer
