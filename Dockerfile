@@ -1,4 +1,4 @@
-FROM python:3.14.8-slim-trixie AS builder
+FROM python:3.15.0-slim-trixie AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -13,7 +13,7 @@ RUN uv venv /opt/venv \
     && uv pip install --python /opt/venv/bin/python --require-hashes -r requirements.lock
 
 
-FROM python:3.14.8-slim-trixie
+FROM python:3.15.0-slim-trixie
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
